@@ -44,10 +44,6 @@ GET /v1/clients/{clientId}/payment-blocks?active=true|false
 
 # Примеры запросов
 
-
-
-# Ошибки
-
 Создать блокировку:
 
 ```
@@ -81,6 +77,7 @@ curl "http://localhost:4010/v1/clients/11111111-1111-1111-1111-111111111111/paym
   -H "Authorization: Bearer demo"
 ```
 
+# Ошибки
 
 - 400 Bad Request — нарушение схемы тела/параметров
 - 401 Unauthorized — нет/неверный токен
