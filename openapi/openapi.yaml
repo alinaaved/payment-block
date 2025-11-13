@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: Payment Blocks API
+  version: 1.0.0
+servers:
+  - url: https://api.tbank.ru/payments
+security:
+  - bearerAuth: []
+paths:
+  /v1/clients/{clientId}/payment-blocks:
+    post:
+      summary: Заблокировать платежи клиента
+      description: Создаёт активную блокировку. Идемпотентно по заголовку Idempotency-Key.
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentBlockCreate'
+      responses:
+        '201':
+          description: Создано
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentBlock' }
+        '409':
+          description: У клиента уже есть активная блокировка
+        '400':
+          description: Неверные данные
+    get:
+      summary: История блокировок клиента
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: active
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: ОК
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PaymentBlock' }
+
+  /v1/clients/{clientId}/payment-blocks/status:
+    get:
+      summary: Проверить, заблокирован ли клиент
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: ОК
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BlockStatus' }
+
+  /v1/clients/{clientId}/payment-blocks/{blockId}/release:
+    post:
+      summary: Разблокировать клиента (закрыть блокировку)
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: blockId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReleaseRequest' }
+      responses:
+        '200':
+          description: Разблокировано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentBlock' }
+        '404': { description: Не найдена активная блокировка }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    PaymentBlockCreate:
+      type: object
+      required: [type, reason]
+      properties:
+        type:
+          type: string
+          enum: [fraud, wrong_details, other]
+          description: Тип блокировки (различаем мошенничество и операционную паузу)
+        reason: { type: string, maxLength: 1000 }
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Необязательное время автоистечения блокировки
+    PaymentBlock:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        clientId: { type: string }
+        type: { $ref: '#/components/schemas/PaymentBlockCreate/properties/type' }
+        reason: { type: string }
+        status: { type: string, enum: [active, released, expired] }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        releasedAt: { type: string, format: date-time, nullable: true }
+        releasedBy: { type: string, nullable: true }
+        releaseReason: { type: string, nullable: true }
+    BlockStatus:
+      type: object
+      properties:
+        blocked: { type: boolean }
+        block:
+          $ref: '#/components/schemas/PaymentBlock'
+          nullable: true
+    ReleaseRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
